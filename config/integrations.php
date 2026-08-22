@@ -98,4 +98,28 @@ return [
         'monday_leads_lookback_days' => (int) env('MONDAY_LEADS_LOOKBACK_DAYS', 400),
     ],
 
+    'attendance' => [
+        'timezone' => env('ATTENDANCE_TIMEZONE', 'America/Chicago'),
+        'spreadsheet_id' => env('HIKVISION_ATTENDANCE_SPREADSHEET_ID', '1V8K_XHd7skbezYf361meWC0gNrnw2cVKTv98UZvRVnY'),
+        // Tab name → company. Drenix skipped in v1 until confirmed.
+        'tabs' => [
+            'JM' => 'JM',
+            'WF' => 'WF',
+            'BP' => 'BP',
+            // 'Drenix' => 'JM', // enable later if names are JM employees
+        ],
+        'headers' => [
+            'time_local' => 'Time Local',
+            'employee_id' => 'Employee id',
+            'employee_name' => 'Employee Name',
+            'action' => 'Action',
+            'shift_time' => 'Shift Time',
+            'shift_date' => 'Shift Date',
+            'late_minutes' => 'Late Minutes',
+            'status' => 'Status',
+            'notes' => 'Notes',
+            'didnt_come' => "Didn't Come",
+        ],
+    ],
+
 ];

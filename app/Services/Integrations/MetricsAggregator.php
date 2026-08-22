@@ -150,6 +150,7 @@ class MetricsAggregator
             'outbound_minutes' => 0,
             'inbound_minutes' => 0,
             'lates' => 0,
+            'no_shows' => 0,
             'leads' => 0,
             'hires' => 0,
             'loaded' => 0,

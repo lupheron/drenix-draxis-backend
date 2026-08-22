@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Attendance\AttendanceService;
 use App\Services\EmployeeMetricsService;
 use App\Services\EmployeeScopeService;
 use App\Support\EmployeeAttributes;
@@ -15,6 +16,7 @@ class UsersController extends Controller
     public function __construct(
         private readonly EmployeeScopeService $employeeScope,
         private readonly EmployeeMetricsService $metricsService,
+        private readonly AttendanceService $attendanceService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -43,6 +45,7 @@ class UsersController extends Controller
 
         if (! empty($validated['from']) && ! empty($validated['to'])) {
             $users = $this->metricsService->attachMetrics($users, $validated['from'], $validated['to']);
+            $users = $this->attendanceService->attachStaffAttendance($users, $validated['from'], $validated['to']);
         }
 
         return response()->json(['data' => $users]);

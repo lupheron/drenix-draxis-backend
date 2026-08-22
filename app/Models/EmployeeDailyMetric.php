@@ -12,6 +12,7 @@ class EmployeeDailyMetric extends Model
         'minutes_on_call',
         'calls_made',
         'lates',
+        'no_shows',
         'leads',
         'hires',
         'loaded',

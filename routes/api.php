@@ -6,14 +6,18 @@ use App\Http\Controllers\AccessRequestsController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminSessionsController;
 use App\Http\Controllers\AdminsController;
+use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CompanyAnalyticsController;
 use App\Http\Controllers\DriverLeadsController;
 use App\Http\Controllers\EmployeeAuthController;
+use App\Http\Controllers\MeAttendanceController;
 use App\Http\Controllers\MeController;
+use App\Http\Controllers\NotificationsController;
 use App\Http\Controllers\UserMetricsController;
 use App\Http\Controllers\RingCentralController;
 use App\Http\Controllers\UsersController;
 use App\Http\Middleware\Cors;
+use App\Http\Middleware\EnsureAttendanceManager;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureAccessAccount;
 use App\Http\Middleware\EnsureAdminWriter;
@@ -73,6 +77,12 @@ Route::group(['middleware' => [Cors::class]], function () {
         Route::get('/me/leads', [MeController::class, 'leads']);
         Route::get('/me/driver-leads', [DriverLeadsController::class, 'index']);
         Route::get('/me/driver-leads/search', [DriverLeadsController::class, 'search']);
+
+        Route::get('/me/attendance/summary', [MeAttendanceController::class, 'summary']);
+        Route::get('/me/attendance/days', [MeAttendanceController::class, 'days']);
+        Route::get('/me/attendance/days/{date}', [MeAttendanceController::class, 'day']);
+        Route::post('/me/attendance/requests', [MeAttendanceController::class, 'storeRequest']);
+        Route::get('/me/attendance/requests', [MeAttendanceController::class, 'requests']);
     });
 
     // Employee data — read for admin + access users ONLY (not employee tokens)
@@ -87,6 +97,19 @@ Route::group(['middleware' => [Cors::class]], function () {
         Route::get('/companies/{company}/hr/analytics', [CompanyAnalyticsController::class, 'hrAnalytics']);
         Route::get('/driver-leads', [DriverLeadsController::class, 'index']);
         Route::get('/driver-leads/search', [DriverLeadsController::class, 'search']);
+
+        Route::get('/attendance/days', [AttendanceController::class, 'days']);
+        Route::get('/attendance/employees/{id}', [AttendanceController::class, 'employee']);
+        Route::get('/attendance/requests', [AttendanceController::class, 'requests']);
+        Route::get('/notifications', [NotificationsController::class, 'index']);
+        Route::post('/notifications/{id}/read', [NotificationsController::class, 'markRead']);
+        Route::post('/notifications/read-all', [NotificationsController::class, 'markAllRead']);
+    });
+
+    Route::middleware(['auth:sanctum', EnsurePortalUser::class, EnsureAttendanceManager::class])->group(function () {
+        Route::patch('/attendance/days/{id}', [AttendanceController::class, 'updateDay']);
+        Route::post('/attendance/requests/{id}/approve', [AttendanceController::class, 'approveRequest']);
+        Route::post('/attendance/requests/{id}/reject', [AttendanceController::class, 'rejectRequest']);
     });
 
     Route::middleware(['auth:sanctum', EnsurePortalUser::class, EnsureAdminWriter::class])->group(function () {
