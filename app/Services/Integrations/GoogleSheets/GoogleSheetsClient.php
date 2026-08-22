@@ -28,12 +28,16 @@ class GoogleSheetsClient
         $token = $this->accessToken();
         $range = rawurlencode("'{$tabName}'!A:Z");
 
-        $response = Http::timeout(60)
+        $response = Http::timeout(120)
             ->withToken($token)
             ->get("https://sheets.googleapis.com/v4/spreadsheets/{$spreadsheetId}/values/{$range}");
 
         if (! $response->successful()) {
-            throw new RuntimeException('Google Sheets API failed: '.$response->body());
+            $body = $response->json();
+            $code = $body['error']['code'] ?? $response->status();
+            $message = $body['error']['message'] ?? $response->body();
+
+            throw new RuntimeException("Google Sheets API failed ({$code}): {$message}");
         }
 
         return $response->json('values') ?? [];
@@ -68,7 +72,7 @@ class GoogleSheetsClient
         $unsigned = "{$header}.{$claim}";
         $privateKey = openssl_pkey_get_private($creds['private_key']);
         if (! $privateKey) {
-            throw new RuntimeException('Invalid Google service account private key.');
+            throw new RuntimeException('Invalid Google service account private key. Re-paste GOOGLE_SERVICE_ACCOUNT_JSON or use GOOGLE_SERVICE_ACCOUNT_JSON_BASE64.');
         }
 
         openssl_sign($unsigned, $signature, $privateKey, OPENSSL_ALGO_SHA256);
@@ -94,16 +98,36 @@ class GoogleSheetsClient
 
         $this->credentialsLoaded = true;
 
-        $json = env('GOOGLE_SERVICE_ACCOUNT_JSON');
-        if ($json) {
+        $base64 = config('integrations.attendance.google_service_account_json_base64');
+        if (is_string($base64) && $base64 !== '') {
+            $decodedJson = base64_decode($base64, true);
+            if ($decodedJson !== false) {
+                $decoded = json_decode($decodedJson, true);
+                if (is_array($decoded)) {
+                    return $this->credentials = $decoded;
+                }
+            }
+        }
+
+        $json = config('integrations.attendance.google_service_account_json');
+        if (is_string($json) && $json !== '') {
+            $json = trim($json);
+            if (str_starts_with($json, "'") && str_ends_with($json, "'")) {
+                $json = substr($json, 1, -1);
+            }
+
             $decoded = json_decode($json, true);
             if (is_array($decoded)) {
                 return $this->credentials = $decoded;
             }
+
+            Log::warning('GOOGLE_SERVICE_ACCOUNT_JSON is set but invalid JSON', [
+                'json_error' => json_last_error_msg(),
+            ]);
         }
 
-        $path = env('GOOGLE_SERVICE_ACCOUNT_PATH');
-        if ($path && is_readable($path)) {
+        $path = config('integrations.attendance.google_service_account_path');
+        if (is_string($path) && $path !== '' && is_readable($path)) {
             $decoded = json_decode((string) file_get_contents($path), true);
             if (is_array($decoded)) {
                 return $this->credentials = $decoded;

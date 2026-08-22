@@ -101,6 +101,9 @@ return [
     'attendance' => [
         'timezone' => env('ATTENDANCE_TIMEZONE', 'America/Chicago'),
         'spreadsheet_id' => env('HIKVISION_ATTENDANCE_SPREADSHEET_ID', '1V8K_XHd7skbezYf361meWC0gNrnw2cVKTv98UZvRVnY'),
+        'google_service_account_json' => env('GOOGLE_SERVICE_ACCOUNT_JSON'),
+        'google_service_account_json_base64' => env('GOOGLE_SERVICE_ACCOUNT_JSON_BASE64'),
+        'google_service_account_path' => env('GOOGLE_SERVICE_ACCOUNT_PATH'),
         // Tab name → company. Drenix skipped in v1 until confirmed.
         'tabs' => [
             'JM' => 'JM',
