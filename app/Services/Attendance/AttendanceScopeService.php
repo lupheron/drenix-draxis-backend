@@ -35,7 +35,7 @@ class AttendanceScopeService
         return $query->whereRaw('1 = 0');
     }
 
-    public function canAccessEmployee(mixed $actor, User|object $employee): bool
+    public function canAccessEmployee(mixed $actor, object $employee): bool
     {
         if ($actor instanceof Admin) {
             return true;
