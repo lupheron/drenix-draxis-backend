@@ -44,7 +44,12 @@ class AttendanceController extends Controller
         }
 
         if (! empty($validated['status'])) {
-            $query->where('status', $validated['status']);
+            $status = $validated['status'];
+            if ($status === 'present') {
+                $query->whereIn('status', ['present', 'break', 'missing_punch']);
+            } else {
+                $query->where('status', $status);
+            }
         }
 
         if (! empty($validated['employee_id'])) {
@@ -61,10 +66,15 @@ class AttendanceController extends Controller
         }
 
         $days = $query->orderByDesc('date')->limit(500)->get();
+        $eventsByKey = $this->attendance->eventsForDays($days);
 
         return response()->json([
-            'data' => $days->map(function (AttendanceDay $day) {
-                $formatted = $this->attendance->formatDay($day, collect());
+            'data' => $days->map(function (AttendanceDay $day) use ($eventsByKey) {
+                $key = $day->user_id.'|'.$day->date->toDateString();
+                $formatted = $this->attendance->formatDay(
+                    $day,
+                    $eventsByKey->get($key, collect()),
+                );
 
                 return array_merge($formatted, [
                     'employee' => [

@@ -99,7 +99,10 @@ return [
     ],
 
     'attendance' => [
+        // Business / logistics calendar ("today", from/to filters = Shift Date)
         'timezone' => env('ATTENDANCE_TIMEZONE', 'America/Chicago'),
+        // Face ID wall clock at Tashkent desk (Time Local column)
+        'punch_timezone' => env('ATTENDANCE_PUNCH_TIMEZONE', 'Asia/Tashkent'),
         'spreadsheet_id' => trim((string) env('HIKVISION_ATTENDANCE_SPREADSHEET_ID', '1V8K_XHd7skbezYf361meWC0gNrnw2cVKTv98UZvRVnY'), " \t\n\r\0\x0B\"'"),
         'google_service_account_json' => env('GOOGLE_SERVICE_ACCOUNT_JSON'),
         'google_service_account_json_base64' => env('GOOGLE_SERVICE_ACCOUNT_JSON_BASE64'),

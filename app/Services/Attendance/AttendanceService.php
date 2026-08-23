@@ -6,6 +6,7 @@ use App\Models\AttendanceDay;
 use App\Models\AttendanceEvent;
 use App\Models\AttendanceRequest;
 use App\Models\User;
+use App\Support\AttendanceNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,11 @@ class AttendanceService
     public function timezone(): string
     {
         return config('integrations.attendance.timezone', 'America/Chicago');
+    }
+
+    public function punchTimezone(): string
+    {
+        return config('integrations.attendance.punch_timezone', 'Asia/Tashkent');
     }
 
     public function todayDate(): string
@@ -43,6 +49,7 @@ class AttendanceService
             'from' => $from,
             'to' => $to,
             'timezone' => $this->timezone(),
+            'punch_timezone' => $this->punchTimezone(),
             'today' => $today ? $this->formatToday($today) : $this->emptyToday(),
             'period' => $this->periodCounts($days, $pendingRequests),
         ];
@@ -125,7 +132,7 @@ class AttendanceService
             $requests = $openRequests->get($user->id);
 
             $user->attendance = [
-                'today_status' => $today?->status,
+                'today_status' => AttendanceNormalizer::displayStatus($today?->status),
                 'late_count' => (int) ($period->late_count ?? 0),
                 'no_show_count' => (int) ($period->no_show_count ?? 0),
                 'open_requests' => (int) ($requests->open_requests ?? 0),
@@ -137,25 +144,44 @@ class AttendanceService
 
     public function formatDay(AttendanceDay $day, Collection $events): array
     {
+        $shiftWindow = $day->shift_start
+            ?: ($events->first(fn (AttendanceEvent $e) => filled($e->shift_time))?->shift_time);
+
         return [
             'id' => $day->id,
             'date' => $day->date->toDateString(),
-            'status' => $day->status,
+            'status' => AttendanceNormalizer::displayStatus($day->status) ?? $day->status,
             'check_in_at' => $day->check_in_at?->toIso8601String(),
             'check_out_at' => $day->check_out_at?->toIso8601String(),
             'break_at' => $day->break_at?->toIso8601String(),
             'late_minutes' => (int) $day->late_minutes,
             'shift_start' => $day->shift_start,
             'shift_end' => $day->shift_end,
+            'shift' => $shiftWindow,
             'sheet_note' => $day->sheet_note,
             'admin_note' => $day->admin_note,
             'is_manual_override' => (bool) $day->is_manual_override,
-            'events' => $events->map(fn (AttendanceEvent $event) => [
-                'id' => $event->id,
-                'type' => $event->event_type,
-                'occurred_at' => $event->occurred_at?->toIso8601String(),
-                'source' => 'sheet',
-            ])->values()->all(),
+            'events' => $events->map(fn (AttendanceEvent $event) => $this->formatEvent($event))->values()->all(),
+        ];
+    }
+
+    public function formatEvent(AttendanceEvent $event): array
+    {
+        $kind = $event->event_type ?: 'other';
+        if (! in_array($kind, ['check_in', 'check_out', 'break', 'no_show', 'other'], true)) {
+            $kind = 'other';
+        }
+
+        return [
+            'id' => $event->id,
+            'type' => $kind,
+            'event_kind' => $kind === 'no_show' ? 'other' : $kind,
+            'action' => $event->action,
+            'occurred_at' => $event->occurred_at?->toIso8601String(),
+            'shift' => $event->shift_time,
+            'late_minutes' => $event->late_minutes !== null ? (int) $event->late_minutes : null,
+            'sheet_note' => $event->notes,
+            'source' => 'sheet',
         ];
     }
 
@@ -178,7 +204,7 @@ class AttendanceService
     {
         return [
             'date' => $day->date->toDateString(),
-            'status' => $day->status,
+            'status' => AttendanceNormalizer::displayStatus($day->status),
             'check_in_at' => $day->check_in_at?->toIso8601String(),
             'check_out_at' => $day->check_out_at?->toIso8601String(),
             'late_minutes' => (int) $day->late_minutes,
@@ -210,12 +236,12 @@ class AttendanceService
         ];
 
         foreach ($days as $day) {
-            match ($day->status) {
+            $status = AttendanceNormalizer::displayStatus($day->status) ?? $day->status;
+            match ($status) {
                 'present', 'missing_punch' => $counts['present_days']++,
                 'late' => $counts['late_days']++,
                 'no_show' => $counts['no_show_days']++,
                 'excused' => $counts['excused_days']++,
-                'break' => $counts['break_days']++,
                 default => null,
             };
         }
@@ -231,5 +257,26 @@ class AttendanceService
             ->orderBy('occurred_at')
             ->get()
             ->groupBy(fn (AttendanceEvent $event) => $event->shift_date->toDateString());
+    }
+
+    /**
+     * Load events for many days keyed by "userId|shiftDate".
+     */
+    public function eventsForDays(Collection $days): Collection
+    {
+        if ($days->isEmpty()) {
+            return collect();
+        }
+
+        $userIds = $days->pluck('user_id')->unique()->all();
+        $from = $days->min(fn (AttendanceDay $d) => $d->date->toDateString());
+        $to = $days->max(fn (AttendanceDay $d) => $d->date->toDateString());
+
+        return AttendanceEvent::query()
+            ->whereIn('user_id', $userIds)
+            ->whereBetween('shift_date', [$from, $to])
+            ->orderBy('occurred_at')
+            ->get()
+            ->groupBy(fn (AttendanceEvent $e) => $e->user_id.'|'.$e->shift_date->toDateString());
     }
 }

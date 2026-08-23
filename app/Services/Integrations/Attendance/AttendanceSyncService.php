@@ -2,7 +2,6 @@
 
 namespace App\Services\Integrations\Attendance;
 
-use App\Models\AttendanceDay;
 use App\Models\AttendanceEvent;
 use App\Services\Integrations\GoogleSheets\GoogleSheetsClient;
 use App\Services\Integrations\UserMatcher;
@@ -32,12 +31,14 @@ class AttendanceSyncService
 
         $spreadsheetId = config('integrations.attendance.spreadsheet_id');
         $tabs = config('integrations.attendance.tabs', []);
-        $timezone = config('integrations.attendance.timezone', 'America/Chicago');
+        $punchTimezone = config('integrations.attendance.punch_timezone', 'Asia/Tashkent');
+        $businessTimezone = config('integrations.attendance.timezone', 'America/Chicago');
 
         $summary = [
             'status' => 'synced',
             'spreadsheet_id' => $spreadsheetId,
-            'timezone' => $timezone,
+            'punch_timezone' => $punchTimezone,
+            'business_timezone' => $businessTimezone,
             'tabs' => [],
             'events_inserted' => 0,
             'events_updated' => 0,
@@ -52,7 +53,7 @@ class AttendanceSyncService
             }
 
             try {
-                $tabSummary = $this->syncTab($spreadsheetId, $tabName, $company, $timezone);
+                $tabSummary = $this->syncTab($spreadsheetId, $tabName, $company, $punchTimezone);
                 $summary['tabs'][$tabName] = $tabSummary;
                 $summary['events_inserted'] += $tabSummary['events_inserted'];
                 $summary['events_updated'] += $tabSummary['events_updated'];
@@ -80,7 +81,7 @@ class AttendanceSyncService
         return $summary;
     }
 
-    private function syncTab(string $spreadsheetId, string $tabName, string $company, string $timezone): array
+    private function syncTab(string $spreadsheetId, string $tabName, string $company, string $punchTimezone): array
     {
         $rows = $this->sheets->getTabValues($spreadsheetId, $tabName);
         if ($rows === []) {
@@ -106,7 +107,7 @@ class AttendanceSyncService
 
         foreach (array_slice($rows, 1) as $index => $row) {
             $sheetRow = $index + 2;
-            $parsed = $this->parseRow($row, $colMap, $tabName, $company, $sheetRow, $timezone);
+            $parsed = $this->parseRow($row, $colMap, $tabName, $company, $sheetRow, $punchTimezone);
             if ($parsed === null) {
                 $summary['events_skipped']++;
                 continue;
@@ -178,7 +179,7 @@ class AttendanceSyncService
         string $tabName,
         string $company,
         int $sheetRow,
-        string $timezone,
+        string $punchTimezone,
     ): ?array {
         $get = fn (string $key) => isset($colMap[$key], $row[$colMap[$key]])
             ? trim((string) $row[$colMap[$key]])
@@ -198,8 +199,14 @@ class AttendanceSyncService
         $didntCome = $get('didnt_come');
         $statusRaw = $get('status') ?: null;
 
-        $occurredAt = $this->parseDateTime($timeLocal, $timezone);
-        $shiftDate = $this->parseShiftDate($shiftDateRaw, $occurredAt, $timezone);
+        // Time Local = Face ID wall clock in Tashkent → store UTC
+        $occurredAt = $this->parseDateTime($timeLocal, $punchTimezone);
+        // Shift Date from sheet column F only — overnight outs stay on that shift day
+        $shiftDate = $this->parseShiftDate($shiftDateRaw);
+
+        if (! $shiftDate) {
+            return null;
+        }
 
         return [
             'company' => $company,
@@ -224,29 +231,31 @@ class AttendanceSyncService
         ];
     }
 
-    private function parseDateTime(?string $value, string $timezone): ?Carbon
+    private function parseDateTime(?string $value, string $punchTimezone): ?Carbon
     {
         if (! $value) {
             return null;
         }
 
         try {
-            return Carbon::parse($value, $timezone)->utc();
+            return Carbon::parse($value, $punchTimezone)->utc();
         } catch (\Throwable) {
             return null;
         }
     }
 
-    private function parseShiftDate(?string $raw, ?Carbon $fallback, string $timezone): ?string
+    private function parseShiftDate(?string $raw): ?string
     {
-        if ($raw) {
-            try {
-                return Carbon::parse($raw, $timezone)->toDateString();
-            } catch (\Throwable) {
-            }
+        if (! $raw || trim($raw) === '') {
+            return null;
         }
 
-        return $fallback?->copy()->timezone($timezone)->toDateString();
+        try {
+            // Calendar date only — do not reinterpret via Chicago midnight
+            return Carbon::parse(trim($raw))->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function findUser($users, string $sheetName, string $company): ?object
