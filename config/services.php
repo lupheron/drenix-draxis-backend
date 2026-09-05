@@ -42,9 +42,12 @@ return [
     'telegram' => [
         'api_id' => env('TG_API_ID'),
         'api_hash' => env('TG_API_HASH'),
+        // Telegram Gateway API token (gateway.telegram.org) — NOT a BotFather bot token
         'bot_token' => env('TG_BOT_TOKEN'),
-        // CheckNumber.ai (or similar) — preferred for phone→Telegram exists check
+        // Optional CheckNumber.ai (or similar) key
         'lookup_key' => env('TG_LOOKUP_KEY'),
+        // Optional MadelineProto session file for ImportContacts (MTProto user session)
+        'session_file' => env('TG_SESSION_FILE'),
     ],
 
 ];
