@@ -35,4 +35,16 @@ return [
         ],
     ],
 
+    'whapi' => [
+        'token' => env('WHAPI_TOKEN'),
+    ],
+
+    'telegram' => [
+        'api_id' => env('TG_API_ID'),
+        'api_hash' => env('TG_API_HASH'),
+        'bot_token' => env('TG_BOT_TOKEN'),
+        // CheckNumber.ai (or similar) — preferred for phone→Telegram exists check
+        'lookup_key' => env('TG_LOOKUP_KEY'),
+    ],
+
 ];

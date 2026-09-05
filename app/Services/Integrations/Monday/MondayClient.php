@@ -162,6 +162,64 @@ class MondayClient
         return $items;
     }
 
+    /**
+     * @return list<array{id: string, title: string}>
+     */
+    public function getBoardGroups(string $boardId): array
+    {
+        $data = $this->query(<<<'GQL'
+            query ($boardId: [ID!]) {
+              boards(ids: $boardId) {
+                groups {
+                  id
+                  title
+                }
+              }
+            }
+        GQL, [
+            'boardId' => [$boardId],
+        ]);
+
+        $groups = $data['boards'][0]['groups'] ?? [];
+
+        return array_values(array_map(fn (array $g) => [
+            'id' => (string) ($g['id'] ?? ''),
+            'title' => (string) ($g['title'] ?? ''),
+        ], $groups));
+    }
+
+    public function moveItemToBoard(string $itemId, string $boardId, string $groupId): array
+    {
+        $data = $this->query(<<<'GQL'
+            mutation ($itemId: ID!, $boardId: ID!, $groupId: String!) {
+              move_item_to_board(item_id: $itemId, board_id: $boardId, group_id: $groupId) {
+                id
+              }
+            }
+        GQL, [
+            'itemId' => $itemId,
+            'boardId' => $boardId,
+            'groupId' => $groupId,
+        ]);
+
+        return $data['move_item_to_board'] ?? [];
+    }
+
+    public function archiveItem(string $itemId): array
+    {
+        $data = $this->query(<<<'GQL'
+            mutation ($itemId: ID!) {
+              archive_item(item_id: $itemId) {
+                id
+              }
+            }
+        GQL, [
+            'itemId' => $itemId,
+        ]);
+
+        return $data['archive_item'] ?? [];
+    }
+
     private function pace(): void
     {
         usleep(self::REQUEST_GAP_MS * 1000);

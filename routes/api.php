@@ -10,8 +10,10 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CompanyAnalyticsController;
 use App\Http\Controllers\DriverLeadsController;
 use App\Http\Controllers\EmployeeAuthController;
+use App\Http\Controllers\LeadVerificationController;
 use App\Http\Controllers\MeAttendanceController;
 use App\Http\Controllers\MeController;
+use App\Http\Controllers\MeDriverLeadsController;
 use App\Http\Controllers\NotificationsController;
 use App\Http\Controllers\UserMetricsController;
 use App\Http\Controllers\RingCentralController;
@@ -34,6 +36,11 @@ Route::group(['middleware' => [Cors::class]], function () {
     Route::post('/admin/login', [AdminAuthController::class, 'login']);
     Route::post('/access/login', [AccessAuthController::class, 'login']);
     Route::post('/employee/login', [EmployeeAuthController::class, 'login']);
+
+    // Admin + Access + Employee (Client Portal) — lead social checks
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::post('/leads/verify-socials', [LeadVerificationController::class, 'verifySocials']);
+    });
 
     // Admin-only management
     Route::middleware(['auth:sanctum', EnsureAdmin::class])->group(function () {
@@ -77,6 +84,8 @@ Route::group(['middleware' => [Cors::class]], function () {
         Route::get('/me/leads', [MeController::class, 'leads']);
         Route::get('/me/driver-leads', [DriverLeadsController::class, 'index']);
         Route::get('/me/driver-leads/search', [DriverLeadsController::class, 'search']);
+        Route::post('/me/driver-leads/move', [MeDriverLeadsController::class, 'move']);
+        Route::delete('/me/driver-leads', [MeDriverLeadsController::class, 'destroy']);
 
         Route::get('/me/attendance/summary', [MeAttendanceController::class, 'summary']);
         Route::get('/me/attendance/days', [MeAttendanceController::class, 'days']);
