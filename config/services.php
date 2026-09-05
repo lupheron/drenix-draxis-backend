@@ -6,12 +6,6 @@ return [
     |--------------------------------------------------------------------------
     | Third Party Services
     |--------------------------------------------------------------------------
-    |
-    | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
-    |
     */
 
     'postmark' => [
@@ -37,16 +31,16 @@ return [
 
     'whapi' => [
         'token' => env('WHAPI_TOKEN'),
+        'base_url' => rtrim(env('WHAPI_BASE_URL', 'https://gate.whapi.cloud'), '/'),
     ],
 
     'telegram' => [
+        // Prefer TG_GATEWAY_TOKEN; TG_BOT_TOKEN kept as legacy alias for same Gateway token
+        'gateway_token' => env('TG_GATEWAY_TOKEN', env('TG_BOT_TOKEN')),
+        'bot_token' => env('TG_BOT_TOKEN'),
         'api_id' => env('TG_API_ID'),
         'api_hash' => env('TG_API_HASH'),
-        // Telegram Gateway API token (gateway.telegram.org) — NOT a BotFather bot token
-        'bot_token' => env('TG_BOT_TOKEN'),
-        // Optional CheckNumber.ai (or similar) key
         'lookup_key' => env('TG_LOOKUP_KEY'),
-        // Optional MadelineProto session file for ImportContacts (MTProto user session)
         'session_file' => env('TG_SESSION_FILE'),
     ],
 

@@ -10,7 +10,7 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CompanyAnalyticsController;
 use App\Http\Controllers\DriverLeadsController;
 use App\Http\Controllers\EmployeeAuthController;
-use App\Http\Controllers\LeadVerificationController;
+use App\Http\Controllers\Api\LeadSocialVerificationController;
 use App\Http\Controllers\MeAttendanceController;
 use App\Http\Controllers\MeController;
 use App\Http\Controllers\MeDriverLeadsController;
@@ -39,7 +39,7 @@ Route::group(['middleware' => [Cors::class]], function () {
 
     // Admin + Access + Employee (Client Portal) — lead social checks
     Route::middleware(['auth:sanctum'])->group(function () {
-        Route::post('/leads/verify-socials', [LeadVerificationController::class, 'verifySocials']);
+        Route::post('/leads/verify-socials', LeadSocialVerificationController::class);
     });
 
     // Admin-only management
