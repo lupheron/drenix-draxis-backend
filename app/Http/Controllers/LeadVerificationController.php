@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Services\LeadSocialVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class LeadVerificationController extends Controller
 {
@@ -22,7 +24,7 @@ class LeadVerificationController extends Controller
         }
 
         $request->validate(['phone' => 'required|string|min:10|max:20']);
-        $digits = preg_replace('/\D/', '', $request->phone) ?? '';
+        $digits = preg_replace('/\D/', '', (string) $request->phone) ?? '';
 
         if (strlen($digits) < 10) {
             return response()->json([
@@ -31,9 +33,26 @@ class LeadVerificationController extends Controller
             ], 422);
         }
 
+        try {
+            $data = $this->verifier->verify($digits);
+        } catch (Throwable $e) {
+            Log::warning('verifySocials failed', ['error' => $e->getMessage()]);
+
+            // Never 5xx/hang for provider failures — Admin/Client need a usable payload
+            $data = [
+                'phone' => $digits,
+                'whatsapp' => false,
+                'whatsapp_status' => 'error',
+                'telegram' => false,
+                'telegram_status' => 'error',
+                'facebook_search_url' => 'https://www.facebook.com/search/top/?q='.urlencode($digits),
+                'instagram_search_url' => 'https://www.instagram.com/',
+            ];
+        }
+
         return response()->json([
             'status' => 'success',
-            'data' => $this->verifier->verify($digits),
+            'data' => $data,
         ]);
     }
 
